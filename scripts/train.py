@@ -1,71 +1,60 @@
-# Training script for YOLO clothing detection
 import os
-import shutil
-import pandas as pd
+import argparse
+from ultralytics import YOLO
 
-def convert_csv_to_yolo(csv_path, dataset_dir):
-    df = pd.read_csv(csv_path)
+def parse_args():
+    parser = argparse.ArgumentParser(description="YOLO 服装 9 细分类训练与断点续训脚本")
     
-    # 方案 B 的 9 细分类别精准映射表
-    garment_map = {
-        'long sleeve top': 0,
-        'short sleeve top': 1,
-        'vest': 2,
-        'skirt': 3,
-        'shorts': 4,
-        'trousers': 5,
-        'long sleeve dress': 6,
-        'short sleeve dress': 7,
-        'vest dress': 8
-    }
+    # 核心路径配置
+    parser.add_argument("--data_config", type=str, default="configs/data.yaml", help="data.yaml 的相对路径")
+    parser.add_argument("--save_dir", type=str, default="/content/drive/MyDrive/yolo_clothing_exp", help="权重保存在 Google Drive 的路径")
+    parser.add_argument("--model", type=str, default="yolov8n.pt", help="预训练基础模型 (yolov8n.pt / yolov8s.pt / yolov8m.pt)")
+    
+    # 训练超参数
+    parser.add_argument("--epochs", type=int, default=50, help="总训练轮数")
+    parser.add_argument("--batch", type=int, default=32, help="Batch size (Colab 免费 T4 建议 16~32)")
+    parser.add_argument("--imgsz", type=int, default=640, help="输入图像分辨率")
+    parser.add_argument("--workers", type=int, default=4, help="数据加载线程数")
+    
+    return parser.parse_args()
 
-    # 创建 YOLO 要求的目录结构
-    for split in ['train', 'val']:
-        os.makedirs(os.path.join(dataset_dir, 'images', split), exist_ok=True)
-        os.makedirs(os.path.join(dataset_dir, 'labels', split), exist_ok=True)
+def main():
+    args = parse_args()
+    
+    # 1. 确保 Google Drive 里的保存目录存在
+    os.makedirs(args.save_dir, exist_ok=True)
+    
+    # 2. 定义本次实验在 Drive 中的完整输出路径与 last.pt 路径
+    exp_name = "garment_9cls_run"
+    last_ckpt = os.path.join(args.save_dir, exp_name, "weights", "last.pt")
 
-    print(f"📊 正在处理 metadata.csv，共 {len(df)} 条记录...")
-
-    missing_img_count = 0
-
-    for idx, row in df.iterrows():
-        filename = str(row['filename']).strip()
-        garment_type = str(row['garment']).lower().strip()
-
-        # 获取对应的类别 ID，如果没匹配上默认归为 1 (short sleeve top)
-        cls_id = garment_map.get(garment_type, 1)
-
-        # 8:2 划分训练集 (train) 与验证集 (val)
-        split = 'val' if idx % 5 == 0 else 'train'
-
-        # 1. 移动/归位图片文件到 YOLO 对应的 images/train 或 images/val
-        src_img = os.path.join(dataset_dir, filename)
-        dst_img = os.path.join(dataset_dir, 'images', split, filename)
+    # 3. 核心：断点自动恢复 (Resume) 逻辑
+    if os.path.exists(last_ckpt):
+        print(f"\n🔄 发现历史权重文件: {last_ckpt}")
+        print("✅ 正在自动启动 Resume 模式，恢复上次中断的训练进度...\n")
         
-        if os.path.exists(src_img):
-            shutil.move(src_img, dst_img)
-        else:
-            # 兼容有些解压后图片在 images 文件夹里的情况
-            src_img_alt = os.path.join(dataset_dir, 'images', filename)
-            if os.path.exists(src_img_alt):
-                shutil.move(src_img_alt, dst_img)
-            else:
-                missing_img_count += 1
-
-        # 2. 生成对应的 YOLO 格式 txt 标注文件 (.txt)
-        txt_name = os.path.splitext(filename)[0] + ".txt"
-        txt_path = os.path.join(dataset_dir, 'labels', split, txt_name)
-
-        # 整张图片的全图标签标注（Center_X, Center_Y, Width, Height 分别为 0.5, 0.5, 1.0, 1.0）
-        with open(txt_path, 'w') as f:
-            f.write(f"{cls_id} 0.5 0.5 1.0 1.0\n")
-
-    print(f"✅ 方案 B 数据转换完成！9 细分类标注已生成。")
-    if missing_img_count > 0:
-        print(f"⚠️ 提示：有 {missing_img_count} 张图片未在解压路径找到，已自动忽略。")
+        # 直接加载中断时保存的 last.pt 权重
+        model = YOLO(last_ckpt)
+        # resume=True 会自动读取上次训练的参数和 Epoch 继续往下跑
+        model.train(resume=True)
+        
+    else:
+        print(f"\n🚀 未找到历史权重，加载预训练模型 [{args.model}] 开始全新的训练...")
+        print(f"📊 使用配置文件: {args.data_config}\n")
+        
+        model = YOLO(args.model)
+        model.train(
+            data=args.data_config,
+            epochs=args.epochs,
+            imgsz=args.imgsz,
+            batch=args.batch,
+            workers=args.workers,
+            project=args.save_dir,     # 将产出直接存入 Google Drive
+            name=exp_name,              # 实验文件夹名称
+            exist_ok=True,             # 允许在同一个文件夹内更新/覆盖
+            save=True,                 # 保存 Checkpoint
+            save_period=1              # 每个 Epoch 都保存一次，防止突然断网
+        )
 
 if __name__ == "__main__":
-    convert_csv_to_yolo(
-        csv_path="/content/dataset/metadata.csv",
-        dataset_dir="/content/dataset"
-    )
+    main()
