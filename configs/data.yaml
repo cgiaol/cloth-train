@@ -1,8 +1,4 @@
-yolo-clothing-detect/
-├── configs/
-│   └── data.yaml          # 核心！定义分类类别和训练/验证集路径
-├── scripts/
-│   ├── train.py           # 启动训练与Resume恢复脚本
-│   └── predict.py         # 推理测试脚本
-├── requirements.txt       # 写上 ultralytics, gdown 等
-└── README.md# Dataset configuration for YOLO clothing detection
+ultralytics>=8.0.0
+gdown>=4.7.0
+pandas>=1.5.0
+pyyaml>=6.0
