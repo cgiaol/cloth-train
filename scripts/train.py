@@ -3,18 +3,19 @@ import argparse
 from ultralytics import YOLO
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="YOLO 服装 9 细分类训练与断点续训脚本")
+    parser = argparse.ArgumentParser(description="YOLO 服装 9 细分类训练与断点续训脚本 (T4 极限优化版)")
     
     # 核心路径配置
     parser.add_argument("--data_config", type=str, default="configs/data.yaml", help="data.yaml 的相对路径")
     parser.add_argument("--save_dir", type=str, default="/content/drive/MyDrive/yolo_clothing_exp", help="权重保存在 Google Drive 的路径")
     parser.add_argument("--model", type=str, default="yolov8n.pt", help="预训练基础模型 (yolov8n.pt / yolov8s.pt / yolov8m.pt)")
     
-    # 训练超参数
+    # 训练超参数 (已匹配 T4 极限参数)
     parser.add_argument("--epochs", type=int, default=50, help="总训练轮数")
-    parser.add_argument("--batch", type=int, default=32, help="Batch size (Colab 免费 T4 建议 16~32)")
+    parser.add_argument("--batch", type=int, default=64, help="Batch size (T4 GPU 极限建议 64)")
     parser.add_argument("--imgsz", type=int, default=640, help="输入图像分辨率")
-    parser.add_argument("--workers", type=int, default=4, help="数据加载线程数")
+    parser.add_argument("--workers", type=int, default=8, help="数据加载线程数 (Colab 推荐 8)")
+    parser.add_argument("--cache", type=bool, default=True, help="是否将图像缓存至 RAM 以极速读取")
     
     return parser.parse_args()
 
