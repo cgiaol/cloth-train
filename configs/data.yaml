@@ -1,4 +1,14 @@
-ultralytics>=8.0.0
-gdown>=4.7.0
-pandas>=1.5.0
-pyyaml>=6.0
+path: /content/dataset     
+train: images/train        # 指向 /content/dataset/images/train
+val: images/val            # 指向 /content/dataset/images/val
+
+names:
+  0: long sleeve top
+  1: short sleeve top
+  2: vest
+  3: skirt
+  4: shorts
+  5: trousers
+  6: long sleeve dress
+  7: short sleeve dress
+  8: vest dress
