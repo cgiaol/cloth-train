@@ -1,6 +1,6 @@
-path: /content/dataset     
-train: images/train        # 指向 /content/dataset/images/train
-val: images/val            # 指向 /content/dataset/images/val
+path: .
+train: images/train
+val: images/val
 
 names:
   0: long sleeve top
